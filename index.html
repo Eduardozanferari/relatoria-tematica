@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Relatoria Temática Ambiental</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF1E6; --surface:#FFFFFF; --ink:#1C2B22; --muted:#56655B;
+  --panel:#1F4030; --on-panel:#F4F1E8; --accent:#1F4030; --gold:#C9951A; --line:#D2D6C6;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0F1914; --surface:#1A2921; --ink:#ECE8DA; --muted:#A3B0A6;
+    --panel:#2A4636; --on-panel:#F1EDE0; --accent:#9AD0AD; --gold:#E0B040; --line:#2C3F34;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0F1914; --surface:#1A2921; --ink:#ECE8DA; --muted:#A3B0A6;
+  --panel:#2A4636; --on-panel:#F1EDE0; --accent:#9AD0AD; --gold:#E0B040; --line:#2C3F34;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Source Sans 3",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.38}
+.app{height:100%;max-width:900px;margin:0 auto;display:flex;flex-direction:column;padding:10px 14px 10px}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tabs button{font:inherit;font-size:13px;font-weight:600;line-height:1.2;color:var(--muted);background:transparent;
+  border:1px solid var(--line);border-radius:8px;padding:8px 6px;cursor:pointer}
+.tabs button[aria-current="true"]{background:var(--panel);color:var(--on-panel);border-color:var(--panel)}
+.bar{display:flex;gap:3px;margin:8px 0 2px}
+.bar button{flex:1;height:14px;padding:5px 0;border:0;background:transparent;cursor:pointer}
+.bar button.gap{margin-left:7px}
+.bar i{display:block;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.bar b{display:block;height:100%;width:0;background:var(--gold)}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+h1{font-family:"Source Serif 4",Georgia,"Times New Roman",serif;font-size:20px;line-height:1.2;font-weight:700;
+  color:var(--accent);margin:6px 0 2px;min-height:1.2em}
+.stage{flex:1;min-height:180px;position:relative}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+canvas:active{cursor:grabbing}
+.hint{position:absolute;right:4px;bottom:2px;margin:0;font-size:12px;color:var(--muted);pointer-events:none}
+.cap{margin:4px 0 10px;padding-top:8px;border-top:1px solid var(--line);font-size:15px;min-height:7em}
+.ctl{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:8px}
+.ctl button{font:inherit;font-weight:600;font-size:15px;padding:11px 8px;border-radius:10px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);cursor:pointer}
+.ctl #play{background:var(--panel);color:var(--on-panel);border-color:var(--panel)}
+.ctl button:disabled{opacity:.4;cursor:default}
+@media (min-width:640px){
+  body{font-size:17px} h1{font-size:26px} .cap{font-size:18px;min-height:4.6em} .tabs button{font-size:15px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="tabs" aria-label="Capítulos">
+    <button type="button" data-go="0">Do que se trata</button>
+    <button type="button" data-go="5">O que já foi feito</button>
+    <button type="button" data-go="10">O que se pretende fazer</button>
+  </nav>
+  <div class="bar" id="bar" aria-label="Cenas"></div>
+  <h1 id="ttl"></h1>
+  <div class="stage" id="stage">
+    <canvas id="cv" role="img" aria-label="Maquete tridimensional animada do território e do trabalho da relatoria temática"></canvas>
+    <p class="hint">Arraste para girar</p>
+  </div>
+  <p class="cap" id="cap" aria-live="polite"></p>
+  <div class="ctl">
+    <button type="button" id="prev">Voltar</button>
+    <button type="button" id="play">Pausar</button>
+    <button type="button" id="next">Avançar</button>
+  </div>
+</div>
+<script>
+(function(){
+'use strict';
+/* ---------- roteiro ---------- */
+var SC=[
+ {ch:0,d:10,title:'Um território, três temas',
+  cap:'Floresta e rio, cidade, encosta sujeita a chuva forte: o mesmo território reúne três temas que o TCE/SC acompanha de forma permanente.'},
+ {ch:0,d:13,title:'Os três temas',
+  cap:'Meio ambiente, ocupação do solo e prevenção de desastres andam juntos: o modo como a cidade cresce pressiona a natureza e define quem fica exposto a enchentes e deslizamentos.'},
+ {ch:0,d:14,title:'O que é a relatoria temática',
+  cap:'Na relatoria temática, um Conselheiro é o titular de um assunto e o acompanha como um todo, de forma contínua. As três relatorias, consolidadas em 2024, têm um só titular: o Conselheiro José Nei Ascari.'},
+ {ch:0,d:13,title:'Quem trabalha com o relator',
+  cap:'O relator supervisiona o Grupo TCE Meio Ambiente: nove servidores do gabinete e de cinco diretorias (DGCE, DLC, DAE, DEC e DGO), sob a coordenação de Ana Sophia.'},
+ {ch:0,d:14,title:'Como o trabalho funciona',
+  cap:'O método é o Programa TCE Meio Ambiente, de 2025: as diretorias fiscalizam de forma articulada, os dados alimentam as análises com apoio de tecnologia e inteligência artificial, e o acompanhamento segue de um ano para o outro.'},
+
+ {ch:1,d:15,title:'Feito: prevenção de desastres',
+  cap:'O Tribunal mediu o preparo da defesa civil dos municípios em 2023 e 2026, inspecionou 22 deles, abriu os dados em um painel público e prepara orientações sobre o El Niño, com julgamento previsto para 02/12/2026.'},
+ {ch:1,d:16,title:'Feito: ocupação do solo',
+  cap:'O foco é o Plano Diretor, a lei que orienta o crescimento da cidade. Os 295 municípios foram auditados. Dos 266 obrigados a ter plano, 169 estão em dia, 74 não fizeram a revisão periódica e 23 não têm plano.'},
+ {ch:1,d:13,title:'Feito: meio ambiente',
+  cap:'Além do saneamento, há quatro frentes com levantamentos e auditorias: políticas de clima, gestão dos recursos hídricos, licenciamento ambiental e os indicadores do IBS Ambiental.'},
+ {ch:1,d:15,title:'Saneamento básico: o problema',
+  cap:'É a pauta mais extensa, com oito temas. Um dado explica a prioridade: de cada 100 municípios catarinenses, 52 não têm sistema público centralizado de esgoto. Daí o foco em esgotamento sanitário e resíduos sólidos.'},
+ {ch:1,d:15,title:'Saneamento básico: o que foi feito',
+  cap:'A atuação foi dupla. Fora dos processos: painel de dados, seminário, cartilha e reuniões com todas as agências reguladoras. Nos processos: levantamentos, inspeções em agências e fiscalização ordenada de aterros e lixões.'},
+
+ {ch:2,d:13,title:'A fazer: desastres e clima',
+  cap:'Para 2027 e 2028, a ideia central é dar continuidade. Aqui: atualizar o diagnóstico da defesa civil, acompanhar os 14 municípios que não cumpriram as orientações ou regrediram e divulgar a Nota Técnica.'},
+ {ch:2,d:12,title:'A fazer: solo e meio ambiente',
+  cap:'Manter a cobrança sobre os 97 municípios com Plano Diretor irregular e dar sequência aos processos de licenciamento ambiental e à auditoria de recursos hídricos.'},
+ {ch:2,d:14,title:'A fazer: saneamento básico',
+  cap:'Acompanhar a regionalização dos serviços, inspecionar os 9 municípios em situação mais crítica nos planos municipais, abrir novos processos de esgoto conforme o ranking e autuar os de resíduos já determinados pelo Plenário.'},
+ {ch:2,d:13,title:'Oportunidades novas',
+  cap:'Avaliar o uso das ferramentas GUIA e VIGIA no tema, levar eventos pelo Estado, criar um painel público de Planos Diretores e acompanhar políticas ainda em construção, como o Plano Estadual de Saneamento, que SC não possui.'},
+ {ch:2,d:16,title:'O calendário',
+  cap:'Os marcos: última reunião do Grupo sob a atual supervisão ainda em 2026; relatório de atividades no início de 2027; prazo final da regionalização em 31/12/2027; e, no horizonte, a meta de universalização de 2033.'}
+];
+var acc=0; SC.forEach(function(s){s.t0=acc;acc+=s.d;}); var TOTAL=acc;
+function st(i){return SC[i].t0;}
+
+/* ---------- utilidades ---------- */
+function clamp(x,a,b){return x<a?a:(x>b?b:x);}
+function ease(x){x=clamp(x,0,1);return x*x*(3-2*x);}
+function ramp(T,t0,d){return ease((T-t0)/d);}
+function win(T,a,b,fi,fo){return ramp(T,a,fi||.7)*(1-ramp(T,b,fo||.6));}
+var seed=7; function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+var FOREVER=1e9;
+
+/* ---------- geometria ---------- */
+var objs=[], sprites=[], tags=[];
+function O(p,vis,grow){var o={p:p,vis:vis==null?1:vis,grow:grow||'y',faces:[],layer:2};objs.push(o);return o;}
+function face(o,v,c,a){o.faces.push({v:v,c:c,l:o.layer,a:a==null?1:a});}
+function box(o,x,y,z,w,h,d,c,ct){var x1=x+w,y1=y+h,z1=z+d,
+  A=[x,y,z],B=[x1,y,z],C=[x1,y,z1],D=[x,y,z1],E=[x,y1,z],F=[x1,y1,z],G=[x1,y1,z1],H=[x,y1,z1];
+  face(o,[E,H,G,F],ct||c);face(o,[D,C,G,H],c);face(o,[B,A,E,F],c);face(o,[C,B,F,G],c);face(o,[A,D,H,E],c);}
+function cbox(o,cx,y,cz,w,h,d,c,ct){box(o,cx-w/2,y,cz-d/2,w,h,d,c,ct);}
+function pyr(o,cx,y,cz,w,h,c){var a=w/2,A=[cx-a,y,cz-a],B=[cx+a,y,cz-a],C=[cx+a,y,cz+a],D=[cx-a,y,cz+a],P=[cx,y+h,cz];
+  face(o,[D,C,P],c);face(o,[C,B,P],c);face(o,[B,A,P],c);face(o,[A,D,P],c);}
+function hexp(o,cx,y,cz,r,h,c,ct){var b=[],t=[],k;for(k=0;k<6;k++){var an=k*Math.PI/3;b.push([cx+r*Math.cos(an),y,cz+r*Math.sin(an)]);t.push([cx+r*Math.cos(an),y+h,cz+r*Math.sin(an)]);}
+  for(k=0;k<6;k++){var n=(k+1)%6;face(o,[b[n],b[k],t[k],t[n]],c);}
+  face(o,[t[5],t[4],t[3],t[2],t[1],t[0]],ct||c);}
+function prism(o,x0,x1,y,h,zf,zb,c){var xm=(x0+x1)/2;
+  face(o,[[x0,y,zf],[x1,y,zf],[xm,y+h,zf]],c);
+  face(o,[[x1,y,zb],[x0,y,zb],[xm,y+h,zb]],c);
+  face(o,[[x0,y,zf],[xm,y+h,zf],[xm,y+h,zb],[x0,y,zb]],c);
+  face(o,[[x1,y,zf],[x1,y,zb],[xm,y+h,zb],[xm,y+h,zf]],c);}
+function flat(o,x0,z0,x1,z1,y,c,a){face(o,[[x0,y,z0],[x0,y,z1],[x1,y,z1],[x1,y,z0]],c,a);}
+
+var GRASS=[146,188,124],G2=[118,166,104],G3=[92,146,88],TREE=[52,112,74],TREE2=[70,132,84],EARTH=[128,100,74],
+    WATER=[78,150,200],STONE=[232,226,208],WHITE=[248,244,232],GOLD=[214,162,34],ROOF=[182,92,58],WALL=[244,234,212],
+    GRAY=[168,168,156],ROAD=[120,124,120],OKC=[62,142,96],WARN=[196,90,52],BLUE=[66,134,178],NEUT=[214,208,190],CLOUD=[226,230,234],DARK=[70,82,76];
+
+function slab(cx,cz,w,d,top,vis){var o=O([cx,0,cz],vis,'u');o.layer=0;cbox(o,0,-1,0,w,1,d,EARTH,top||GRASS);return o;}
+function house(x,y,z,vis,wall,roof,s){s=s||1;var o=O([x,y,z],vis,'u');cbox(o,0,0,0,.8*s,.55*s,.8*s,wall||WALL);pyr(o,0,.55*s,0,.98*s,.5*s,roof||ROOF);return o;}
+function tree(x,y,z,vis,s){s=s||1;var o=O([x,y,z],vis,'u');cbox(o,0,0,0,.14*s,.3*s,.14*s,EARTH);pyr(o,0,.3*s,0,.72*s,.75*s,rnd()>.5?TREE:TREE2);pyr(o,0,.72*s,0,.52*s,.62*s,TREE2);return o;}
+function cloud(x,y,z,vis,s){s=s||1;var sh=O([x,0,z],vis,'u');sh.layer=1;flat(sh,-1.5*s,-.9*s,1.5*s,.9*s,.05+y*.0,[30,50,40],.22);sh.p=[x,(y>3?.0:0),z];
+  var o=O([x,y,z],vis,'u');cbox(o,0,0,0,2.6*s,.6*s,1.5*s,[150,160,174],[176,186,198]);cbox(o,-.5*s,.6*s,.1*s,1.4*s,.6*s,1.1*s,[176,186,198],[214,220,228]);cbox(o,.7*s,.6*s,-.1*s,1.1*s,.4*s,.9*s,[164,174,188],[200,208,218]);cbox(o,-1.5*s,.1*s,0,.6*s,.4*s,.9*s,[164,174,188]);return o;}
+function pawn(col,pf,vis){var o=O([0,0,0],vis,'u');o.pf=pf;pyr(o,0,0,0,.36,.6,col);
+  sprites.push({k:'c',pf:function(T){var p=pf(T);return [p[0],p[1]+.72,p[2]];},r:.15,c:col,vis:vis});return o;}
+function pin(x,y,z,h,t0,t1,col){sprites.push({k:'pin',p:[x,y,z],h:h,c:col||GOLD,vis:function(T){return win(T,t0,t1);}});}
+function tag(text,p,t0,t1){tags.push({text:text,p:p,t0:t0,t1:t1});}
+function arcPt(a,b,lift,u){var mx=(a[0]+b[0])/2,my=Math.max(a[1],b[1])+lift,mz=(a[2]+b[2])/2,v=1-u;
+  return [v*v*a[0]+2*v*u*mx+u*u*b[0],v*v*a[1]+2*v*u*my+u*u*b[1],v*v*a[2]+2*v*u*mz+u*u*b[2]];}
+
+/* ===== A: o território (origem 0,0,0) ===== */
+slab(0,0,22,14);
+(function(){
+  var o=O([0,0,0]);
+  cbox(o,-7.5,0,-1,6,.6,9,G2);cbox(o,-7.8,.6,-1.3,4,.6,6,G3);cbox(o,-8,1.2,-1.6,2.2,.6,3,[80,132,82]);
+  // rio
+  var r=O([0,0,0]);r.layer=1;var P=[[-4.6,-1.8],[-2.5,1],[.5,3.2],[1.2,7]],i;
+  for(i=0;i<P.length-1;i++){var a=P[i],b=P[i+1],dx=b[0]-a[0],dz=b[1]-a[1],L=Math.sqrt(dx*dx+dz*dz),nx=-dz/L*.5,nz=dx/L*.5;
+    face(r,[[a[0]-nx,.02,a[1]-nz],[a[0]+nx,.02,a[1]+nz],[b[0]+nx,.02,b[1]+nz],[b[0]-nx,.02,b[1]-nz]],WATER);}
+  function nearRiver(x,z){for(var i=0;i<P.length-1;i++){var a=P[i],b=P[i+1],t=clamp(((x-a[0])*(b[0]-a[0])+(z-a[1])*(b[1]-a[1]))/((b[0]-a[0])*(b[0]-a[0])+(b[1]-a[1])*(b[1]-a[1])),0,1),
+    px=a[0]+t*(b[0]-a[0]),pz=a[1]+t*(b[1]-a[1]);if((x-px)*(x-px)+(z-pz)*(z-pz)<1)return true;}return false;}
+  function hy(x,z){if(Math.abs(x+8)<1.1&&Math.abs(z+1.6)<1.5)return 1.8;if(Math.abs(x+7.8)<2&&Math.abs(z+1.3)<3)return 1.2;if(Math.abs(x+7.5)<3&&Math.abs(z+1)<4.5)return .6;return 0;}
+  var n=0,g=0;while(n<40&&g++<400){var x=-10.6+rnd()*8.2,z=-6.4+rnd()*12.8;
+    if(nearRiver(x,z))continue; if(x>-3.6&&z<-2.6)continue;
+    (function(x,z,d){tree(x,hy(x,z),z,function(T){return ramp(T,d,.7);},.8+rnd()*.5);})(x,z,.3+rnd()*2.6);n++;}
+  // cidade
+  var xs=[3.4,4.8,6.2,7.6,9],zs=[-5.2,-3.8,-2.4,-1,.4];
+  xs.forEach(function(x){zs.forEach(function(z){if(rnd()<.14)return;var d=.6+rnd()*2.6,big=rnd()<.25;
+    house(x+rnd()*.2,0,z+rnd()*.2,function(T){return ramp(T,d,.7);},big?[226,220,206]:WALL,big?[110,122,134]:ROOF,big?1.25:1);});});
+})();
+// encosta de risco e nuvem
+(function(){var o=O([0,0,0]);cbox(o,5.4,0,4.7,3.6,.9,2.6,[122,150,96]);
+  [[4.4,.9,4.3],[5.6,.9,5.1],[6.5,.9,4.2]].forEach(function(p){house(p[0],p[1],p[2],function(T){return ramp(T,1.5,.8);},[236,214,186],[160,78,56],.85);});
+  [[2.7,0,4.6],[2.4,0,3.2]].forEach(function(p){house(p[0],p[1],p[2],function(T){return ramp(T,1.8,.8);},[236,214,186],[160,78,56],.85);});
+})();
+var CL=[4.4,4.6,4.4];
+cloud(CL[0],CL[1],CL[2],function(T){return ramp(T,st(1)+6.2,1.2);},1.15);
+function raining(T){return Math.max(win(T,st(1)+7.4,st(2)+1,.8,1.5),win(T,st(5)-.5,st(6)+.5,1,1.5));}
+(function(){for(var i=0;i<34;i++){(function(i){var ox=(rnd()-.5)*2.8,oz=(rnd()-.5)*1.7,ph=rnd();
+  sprites.push({k:'rain',vis:raining,pf:function(T){var y=CL[1]-((T*1.5+ph)%1)*4.4;return [CL[0]+ox,y,CL[2]+oz];}});})(i);}})();
+// cheia
+(function(){var o=O([2.1,0,4.9],function(T){return win(T,st(5)+.8,st(6)+.5,4,1.5);},'u');o.layer=1;flat(o,-2,-2.1,2,2.1,.04,WATER,.82);})();
+// sede do Tribunal
+var BLD=[0,0,-5];
+(function(){var o=O(BLD,function(T){return ramp(T,st(2)+.6,1.6);});
+  cbox(o,0,0,0,4.4,.3,2.6,STONE);cbox(o,0,.3,-.3,3.6,1.5,1.6,WALL);
+  [-1.6,-.96,-.32,.32,.96,1.6].forEach(function(x){cbox(o,x,.3,.85,.24,1.5,.24,WHITE);});
+  cbox(o,0,1.8,0,4,.28,2.4,STONE);prism(o,-2,2,2.08,.8,1.2,-1.2,[222,214,192]);
+})();
+var RELP=[0,0,-3.3];
+pawn(GOLD,function(){return RELP;},function(T){return ramp(T,st(2)+2.6,.8);});
+tag('Meio ambiente',[-8,3,-1.6],st(1)+1,st(2)-.2);
+tag('Ocupação do solo',[6.2,1.5,-2.4],st(1)+4,st(2)-.2);
+tag('Prevenção de desastres',[4.4,5.9,4.4],st(1)+8,st(2)-.2);
+tag('Relator temático',[0,1.1,-3.3],st(2)+3.4,st(3)-.2);
+tag('Tribunal de Contas (TCE/SC)',[0,3,-5],st(2)+1.6,st(3)-.2);
+// feixes: relator -> três temas
+var TOPB=[0,2.9,-5], ZN=[[-8,2,-1.6],[6.2,.9,-2.4],[4.6,1.6,4.6]];
+ZN.forEach(function(z,i){sprites.push({k:'arc',a:TOPB,b:z,lift:2.6,c:GOLD,
+  prog:function(T){return ramp(T,st(2)+5.5+i*1.3,1.4);},vis:function(T){return 1-ramp(T,st(5)-1,1);}});
+  for(var k=0;k<5;k++){(function(k){sprites.push({k:'c',r:.13,c:[255,236,170],
+    vis:function(T){return win(T,st(4)+.8,st(5)-1.2,.8,.8);},
+    pf:function(T){var u=((T*.28+k/5+i*.13)%1);return arcPt(z,TOPB,2.6,u);}});})(k);}
+});
+// mesa e grupo
+(function(){var TB=[0,0,-1.7];var o=O(TB,function(T){return win(T,st(3)+.3,st(5)-.5,.9,.8);});hexp(o,0,0,0,.75,.32,[150,112,78],[176,134,92]);
+  var cols=[[46,134,140],[46,134,140],[46,134,140],[104,96,170],[180,96,120],[84,150,84],[196,120,48],[196,120,48],[90,120,190]];
+  cols.forEach(function(c,i){var an=-Math.PI/2+.5+(i/9)*(Math.PI*2-1),end=[TB[0]+Math.cos(an)*1.35,0,TB[2]+Math.sin(an)*1.35],
+    sa=an+(rnd()-.5)*.6,start=[TB[0]+Math.cos(sa)*8,0,TB[2]+Math.sin(sa)*5+1.5],t0=st(3)+1+i*.55;
+    pawn(c,function(T){var u=ramp(T,t0,2.2),hop=Math.abs(Math.sin(u*Math.PI*5))*.12*(u<1?1:0);
+      return [start[0]+(end[0]-start[0])*u,hop,start[2]+(end[2]-start[2])*u];},
+      function(T){return win(T,t0-.1,st(5)-.5,.5,.8);});});
+  tag('Grupo TCE Meio Ambiente',[0,1.3,-1.7],st(3)+6.5,st(4)-.2);
+  tag('Coordenação: Ana Sophia',[1.3,.8,-1.2],st(3)+9,st(4)-.2);
+})();
+tag('Dados e tecnologia',arcPt(ZN[0],TOPB,2.6,.5),st(4)+2,st(5)-.2);
+tag('Fiscalização articulada',arcPt(ZN[1],TOPB,2.6,.45),st(4)+5,st(5)-.2);
+tag('Acompanhamento contínuo',[0,3.2,-5],st(4)+8,st(5)-.2);
+// desastres: barreira de proteção
+sprites.push({k:'ring',p:[4.6,.1,4.6],r:3.3,c:GOLD,prog:function(T){return ramp(T,st(5)+6,2);},vis:function(T){return win(T,st(5)+6,st(6)+.3,.5,1);}});
+tag('Diagnóstico da defesa civil municipal',[6.5,1.9,4.2],st(5)+2,st(6)-.2);
+tag('22 municípios inspecionados',[2.5,.9,3.4],st(5)+5,st(6)-.2);
+tag('Painel público de desastres',[4.4,6,4.4],st(5)+8,st(6)-.2);
+tag('Nota Técnica: El Niño',[7.6,.4,6.2],st(5)+11,st(6)-.2);
+// meio ambiente: quatro frentes
+pin(-8,1.8,-1.6,1.3,st(7)+1.2,st(8));tag('Clima',[-8,3.3,-1.6],st(7)+1.6,st(8)-.2);
+pin(-2.5,0,1,1.5,st(7)+3.6,st(8),[90,170,220]);tag('Recursos hídricos',[-2.5,1.7,1],st(7)+4,st(8)-.2);
+(function(){var o=O([-5.6,0,4.6],function(T){return win(T,st(7)+5.8,st(8)+.5,.9,.8);});cbox(o,0,0,0,1.5,.7,1,GRAY);cbox(o,.45,.7,-.2,.26,.9,.26,DARK);prism(o,-.75,0,.7,.35,.5,-.5,[140,140,130]);})();
+tag('Licenciamento ambiental',[-5.6,1.8,4.6],st(7)+6.5,st(8)-.2);
+(function(){var o=O([-9.2,0,5.2],function(T){return win(T,st(7)+8.4,st(8)+.5,.9,.8);});hexp(o,0,0,0,.5,.16,GOLD,[240,196,70]);hexp(o,.1,.16,.05,.5,.16,GOLD,[240,196,70]);hexp(o,-.05,.32,0,.5,.16,GOLD,[240,196,70]);})();
+tag('IBS Ambiental',[-9.2,.9,5.2],st(7)+9,st(8)-.2);
+
+/* ===== C: Planos Diretores (origem 0,0,-26) ===== */
+slab(0,-26,19,11.6,[176,182,160],function(T){return win(T,st(6)-.6,st(7)+2.6,.9,.8);});
+(function(){var t=st(6),i;
+  for(i=0;i<295;i++){(function(i){var col=i%25,row=(i/25)|0,x=-8.16+col*.68,z=-30.5+row*.8;
+    var cat=i<169?0:(i<243?1:(i<266?2:3)),h=[.7+rnd()*.8,.42,.07,.07][cat],C=[OKC,GOLD,WARN,[150,152,140]][cat],
+        tc=[5,8,10,3.5][cat]+(cat===0?i/169*1.8:cat===1?(i-169)/74*1.2:cat===2?(i-243)/23*.8:0),tin=1+(col+row)*.03;
+    var o=O([x,0,z],function(T){return ramp(T,t+tin,.5)*(1-ramp(T,st(7)+2,.6))*(.07+(h-.07)*ramp(T,t+tc,.9));});
+    o.col=function(T){var u=ramp(T,t+tc,.6);return [NEUT[0]+(C[0]-NEUT[0])*u,NEUT[1]+(C[1]-NEUT[1])*u,NEUT[2]+(C[2]-NEUT[2])*u];};
+    cbox(o,0,0,0,.5,1,.6,NEUT);})(i);}
+  tag('169 em dia',[0,2,-28.2],t+6.6,st(7)-.2);
+  tag('74 sem revisão',[-3,1,-23.9],t+8.6,st(7)-.2);
+  tag('23 sem plano',[2,.5,-22.4],t+10.6,st(7)-.2);
+  tag('29 sem obrigação legal',[6.5,.4,-21.8],t+3.8,t+7.5);
+})();
+
+/* ===== D: saneamento (origem -32,0,0) ===== */
+slab(-32,0,17,13,[170,190,160],function(T){return ramp(T,st(8)-.6,.9);});
+(function(){var t=st(8),ids=[],i;for(i=0;i<100;i++)ids.push(i);
+  for(i=99;i>0;i--){var j=(rnd()*(i+1))|0,tmp=ids[i];ids[i]=ids[j];ids[j]=tmp;}
+  var bad={};for(i=0;i<52;i++)bad[ids[i]]=i+1;
+  for(i=0;i<100;i++){(function(i){var cx=-39.4+(i%10)*1.02,cz=-4.6+((i/10)|0)*1.02,b=bad[i],d=.5+rnd()*2;
+    var C=b?WARN:BLUE,tc=b?5+b/52*2:7.6+rnd()*.8;
+    var o=O([cx,0,cz],function(T){return ramp(T,t+d,.6);},'u');
+    var R0=[196,190,172];o.col=function(T,base){if(base!==R0)return base;var u=ramp(T,t+tc,.5);return [R0[0]+(C[0]-R0[0])*u,R0[1]+(C[1]-R0[1])*u,R0[2]+(C[2]-R0[2])*u];};
+    cbox(o,0,0,0,.56,.4,.56,WALL);pyr(o,0,.4,0,.7,.38,R0);})(i);}
+  var p=O([-27,0,-3.2],function(T){return ramp(T,t+9,1);});
+  hexp(p,0,0,0,.9,.6,[190,196,196],BLUE);hexp(p,1.6,0,.7,.7,.5,[190,196,196],BLUE);cbox(p,.9,0,-1.2,1.4,.7,.8,WALL);
+  var m=O([-27,0,3.2],function(T){return ramp(T,t+10.5,1);});
+  cbox(m,0,0,0,2.6,.45,2.4,[138,112,84]);cbox(m,-.1,.45,0,1.8,.4,1.6,[126,102,78]);cbox(m,-.2,.85,0,.9,.35,.8,[112,92,72]);
+  cbox(m,1.9,0,1.3,.9,.5,.5,[220,170,60]);cbox(m,2.5,0,1.3,.4,.4,.5,WHITE);
+  tag('52 em cada 100 sem sistema público de esgoto',[-34.8,1.4,0],t+6.8,st(9)-.2);
+  tag('Esgotamento sanitário',[-27,1.5,-3.2],t+9.8,st(9)-.2);
+  tag('Resíduos sólidos',[-27,1.9,3.2],t+11.3,st(9)-.2);
+  var u=st(9);
+  tag('Painel com dados dos 295 municípios',[-36.5,1.2,-2.5],u+1.5,u+8.2);
+  tag('Seminário e cartilha',[-33,1.2,2.8],u+4,u+9.2);
+  tag('Reuniões com todas as agências reguladoras',[-35,1.4,0],u+7.2,st(10)-.2);
+  tag('Inspeções em agências reguladoras',[-27,1.5,-3.2],u+9.6,st(10)-.2);
+  tag('Fiscalização de aterros e lixões',[-27,1.9,3.2],u+11.6,st(10)-.2);
+})();
+
+/* ===== E: o caminho à frente (x=-32, z de -9 a -63) ===== */
+(function(){var X=-32;var EV=function(T){return ramp(T,st(10)-.8,1);};slab(X,-36,9,55,[166,188,150],EV);
+  var r=O([X,0,-36],EV,'u');r.layer=1;flat(r,-1.1,-27.2,1.1,27.2,.02,ROAD);
+  for(var z=26;z>-27;z-=2.4)flat(r,-.07,z-1.1,.07,z,.03,WHITE);
+  function at(i){return function(T){return ramp(T,st(i)+.4,1);};}
+  // estação 1: desastres e clima
+  house(X-2.9,0,-13,at(10));house(X-2.1,0,-14.2,at(10),null,null,.8);cloud(X-2.6,2.3,-13.4,at(10),.62);
+  tag('Novo questionário de defesa civil em 2027',[X-2.6,3.5,-13.4],st(10)+2,st(11)-.2);
+  tag('Acompanhar 14 municípios que não avançaram',[X-2.1,1,-14.2],st(10)+5,st(11)-.2);
+  tag('Divulgar a Nota Técnica',[X+1.6,.4,-12.4],st(10)+8,st(11)-.2);
+  // estação 2: solo e meio ambiente
+  var c=O([X+2.8,0,-21],at(11));cbox(c,-.5,0,0,.7,1.5,.7,[226,220,206],OKC);cbox(c,.4,0,.3,.7,.9,.7,[226,220,206],GOLD);cbox(c,0,0,-.9,.7,1.1,.7,[226,220,206],OKC);
+  tree(X+1.9,0,-20.2,at(11),1.1);tree(X+3.7,0,-22,at(11),1.2);tree(X+2,0,-22.3,at(11));
+  tag('Planos Diretores: auditar e monitorar',[X+2.6,1.9,-21],st(11)+2,st(12)-.2);
+  tag('Licenciamento: novos processos',[X+3.7,1.5,-22],st(11)+5,st(12)-.2);
+  tag('Recursos hídricos: seguir com a auditoria',[X+.2,.1,-19.2],st(11)+8,st(12)-.2);
+  // estação 3: saneamento
+  var s=O([X-2.8,0,-29],at(12));hexp(s,0,0,0,.8,.6,[190,196,196],BLUE);cbox(s,1.2,0,.9,1.4,.4,1.2,[138,112,84]);cbox(s,1.2,.4,.9,.8,.35,.7,[120,98,76]);
+  tag('Regionalização: lei até 31/12/2027',[X-2.8,1.2,-29],st(12)+2,st(13)-.2);
+  tag('Inspeção em 9 municípios críticos',[X-1.6,1.1,-28.1],st(12)+5,st(13)-.2);
+  tag('Esgoto: novos processos pelo ranking',[X-3.4,.7,-30.2],st(12)+8,st(13)-.2);
+  tag('Resíduos: autuar os processos pendentes',[X+1.4,.3,-28],st(12)+10.5,st(13)-.2);
+  // estação 4: oportunidades
+  var g=O([X+2.8,0,-37],at(13),'u');pyr(g,0,0,0,.9,1.6,GOLD);pyr(g,.8,0,.5,.6,1,[240,196,70]);pyr(g,-.6,0,.6,.5,.8,[240,196,70]);
+  tag('Ferramentas GUIA e VIGIA',[X+2.8,1.9,-37],st(13)+2,st(14)-.2);
+  tag('Eventos pelo Estado',[X+3.6,1.2,-36.5],st(13)+5,st(14)-.2);
+  tag('Painel de Planos Diretores',[X+2.2,1,-36.4],st(13)+7.5,st(14)-.2);
+  tag('Planos estaduais a acompanhar',[X-1.4,.3,-36],st(13)+10,st(14)-.2);
+  // portais do calendário
+  var G=[['Nov/dez 2026: última reunião do Grupo',1,6.5],['Jan/fev 2027: prestação de contas',3.8,9.3],['2027: questionário de defesa civil',6.6,12.2],
+         ['31/12/2027: lei da regionalização',9.4,FOREVER],['31/12/2033: 99% de água e 90% de esgoto',12.2,FOREVER]];
+  G.forEach(function(gt,i){var z=-44-i*4,last=i>2,col=last?GOLD:STONE;
+    var o=O([X,0,z],function(T){return ramp(T,st(13)+9+i*.5,1);});
+    cbox(o,-1.5,0,0,.3,2.2,.3,col);cbox(o,1.5,0,0,.3,2.2,.3,col);cbox(o,0,2.2,0,3.6,.3,.34,col);
+    tag(gt[0],[X,2.7,z],st(14)+gt[1],st(14)+gt[2]);});
+})();
+
+/* ---------- câmera ---------- */
+var CAM=[
+ [{t:[0,0,0],yaw:-.55,pitch:.5,d:36},{t:[0,0,0],yaw:.05,pitch:.56,d:31}],
+ [{t:[0,.5,0],yaw:.12,pitch:.58,d:30},{t:[0,.5,0],yaw:.5,pitch:.6,d:29}],
+ [{t:[0,1,-3.4],yaw:.3,pitch:.44,d:19},{t:[0,1,-2],yaw:-.2,pitch:.52,d:26}],
+ [{t:[0,.5,-2.4],yaw:-.35,pitch:.5,d:12},{t:[0,.5,-2.2],yaw:.25,pitch:.55,d:11}],
+ [{t:[0,.5,-1],yaw:.25,pitch:.58,d:27},{t:[0,.5,-1],yaw:.6,pitch:.6,d:29}],
+ [{t:[4.4,1.2,4.2],yaw:.5,pitch:.42,d:15},{t:[4.4,1.2,4.2],yaw:.95,pitch:.48,d:16}],
+ [{t:[0,0,-26],yaw:-.35,pitch:.66,d:27},{t:[0,0,-26],yaw:.22,pitch:.6,d:26}],
+ [{t:[-5.5,.5,1.2],yaw:-.2,pitch:.55,d:19},{t:[-5.5,.5,1.2],yaw:.2,pitch:.58,d:19}],
+ [{t:[-32,0,0],yaw:.5,pitch:.66,d:25},{t:[-32,0,0],yaw:.2,pitch:.62,d:24}],
+ [{t:[-32,0,0],yaw:.2,pitch:.6,d:24},{t:[-32,0,0],yaw:-.25,pitch:.6,d:24}],
+ [{t:[-33,1,-13.4],yaw:.55,pitch:.42,d:12},{t:[-33,1,-13.4],yaw:.3,pitch:.44,d:12}],
+ [{t:[-30.6,.8,-21],yaw:-.45,pitch:.42,d:12},{t:[-30.6,.8,-21],yaw:-.2,pitch:.44,d:12}],
+ [{t:[-33,.6,-29],yaw:.5,pitch:.44,d:12},{t:[-33,.6,-29],yaw:.25,pitch:.46,d:12}],
+ [{t:[-30.8,.8,-37],yaw:-.4,pitch:.42,d:12},{t:[-31.5,.8,-39],yaw:-.1,pitch:.4,d:13}],
+ [{t:[-32,1.2,-45],yaw:.5,pitch:.34,d:13},{t:[-32,1.2,-56],yaw:.28,pitch:.34,d:15}]
+];
+var KF=[];CAM.forEach(function(c,i){KF.push([i===0?0:st(i)+2.2,c[0]]);KF.push([st(i)+SC[i].d,c[1]]);});
+function camAt(T){var i=0;while(i<KF.length-2&&T>KF[i+1][0])i++;var a=KF[i],b=KF[i+1],u=ease((T-a[0])/(b[0]-a[0]||1));
+  function L(x,y){return x+(y-x)*u;}
+  return {t:[L(a[1].t[0],b[1].t[0]),L(a[1].t[1],b[1].t[1]),L(a[1].t[2],b[1].t[2])],yaw:L(a[1].yaw,b[1].yaw),pitch:L(a[1].pitch,b[1].pitch),d:L(a[1].d,b[1].d)};}
+
+/* ---------- render ---------- */
+var cv=document.getElementById('cv'),ctx=cv.getContext('2d'),W=0,H=0,dpr=1,F=1,BG=[238,241,230];
+var cam={x:0,y:0,z:0,r:[1,0,0],u:[0,1,0],f:[0,0,-1]},yawOff=0,pitchOff=0;
+function readBG(){var m=getComputedStyle(document.body).backgroundColor.match(/[\d.]+/g);if(m)BG=[+m[0],+m[1],+m[2]];}
+function resize(){var r=cv.getBoundingClientRect();dpr=Math.min(2,window.devicePixelRatio||1);W=Math.max(50,Math.round(r.width*dpr));H=Math.max(50,Math.round(r.height*dpr));
+  cv.width=W;cv.height=H;F=1.22*Math.min(W,H*1.2);tags.forEach(function(g){g.lines=null;});readBG();}
+function setCam(T){var c=camAt(T);if(W/H>1.3)c.d*=.78;var yaw=c.yaw+yawOff,pt=clamp(c.pitch+pitchOff,.12,1.35),cp=Math.cos(pt);
+  cam.x=c.t[0]+c.d*cp*Math.sin(yaw);cam.y=c.t[1]+c.d*Math.sin(pt);cam.z=c.t[2]+c.d*cp*Math.cos(yaw);
+  var fx=c.t[0]-cam.x,fy=c.t[1]-cam.y,fz=c.t[2]-cam.z,l=Math.sqrt(fx*fx+fy*fy+fz*fz);fx/=l;fy/=l;fz/=l;
+  var rx=-fz,rz=fx,rl=Math.sqrt(rx*rx+rz*rz);rx/=rl;rz/=rl; // f x up
+  cam.f=[fx,fy,fz];cam.r=[rx,0,rz];cam.u=[-rz*fy, rz*fx-rx*fz, rx*fy];}
+function proj(p){var dx=p[0]-cam.x,dy=p[1]-cam.y,dz=p[2]-cam.z,z=dx*cam.f[0]+dy*cam.f[1]+dz*cam.f[2];if(z<.6)return null;
+  var x=dx*cam.r[0]+dz*cam.r[2],y=dx*cam.u[0]+dy*cam.u[1]+dz*cam.u[2];return [W/2+x*F/z,H*.5-y*F/z,z];}
+var LX=.35,LY=.82,LZ=.45;
+function shade(c,lit,z,a){var fog=clamp((z-34)/46,0,.82),r=c[0]*lit,g=c[1]*lit,b=c[2]*lit;
+  r+=(BG[0]-r)*fog;g+=(BG[1]-g)*fog;b+=(BG[2]-b)*fog;
+  return a<1?'rgba('+(r|0)+','+(g|0)+','+(b|0)+','+a+')':'rgb('+(r|0)+','+(g|0)+','+(b|0)+')';}
+function val(v,T){return typeof v==='function'?v(T):v;}
+function render(T){
+  setCam(T);ctx.clearRect(0,0,W,H);var list=[],i,j,o,s,p,fc;
+  for(i=0;i<objs.length;i++){o=objs[i];s=val(o.vis,T);if(s<=.012)continue;p=o.pf?o.pf(T):o.p;
+    var sx=o.grow==='u'?s:1,sy=s;
+    for(j=0;j<o.faces.length;j++){fc=o.faces[j];var v=fc.v,n=v.length,w=[],k,ok=true,zs=0,pts=[];
+      for(k=0;k<n;k++)w.push([p[0]+v[k][0]*sx,p[1]+v[k][1]*sy,p[2]+v[k][2]*sx]);
+      var ax=w[1][0]-w[0][0],ay=w[1][1]-w[0][1],az=w[1][2]-w[0][2],bx=w[2][0]-w[0][0],by=w[2][1]-w[0][1],bz=w[2][2]-w[0][2],
+          nx=ay*bz-az*by,ny=az*bx-ax*bz,nz=ax*by-ay*bx;
+      if(nx*(cam.x-w[0][0])+ny*(cam.y-w[0][1])+nz*(cam.z-w[0][2])<=0)continue;
+      var cs=[],out=[];
+      for(k=0;k<n;k++){var dx=w[k][0]-cam.x,dy=w[k][1]-cam.y,dz=w[k][2]-cam.z;
+        cs.push([dx*cam.r[0]+dz*cam.r[2],dx*cam.u[0]+dy*cam.u[1]+dz*cam.u[2],dx*cam.f[0]+dy*cam.f[1]+dz*cam.f[2]]);}
+      for(k=0;k<n;k++){var ca=cs[k],cb=cs[(k+1)%n],ia=ca[2]>=.6,ib=cb[2]>=.6;if(ia)out.push(ca);
+        if(ia!==ib){var tt=(.6-ca[2])/(cb[2]-ca[2]);out.push([ca[0]+(cb[0]-ca[0])*tt,ca[1]+(cb[1]-ca[1])*tt,.6]);}}
+      if(out.length<3)continue;n=out.length;
+      for(k=0;k<n;k++){pts.push(W/2+out[k][0]*F/out[k][2],H*.5-out[k][1]*F/out[k][2]);zs+=out[k][2];}
+      var nl=Math.sqrt(nx*nx+ny*ny+nz*nz)||1,lit=.6+.4*Math.max(0,(nx*LX+ny*LY+nz*LZ)/nl),c=o.col?o.col(T,fc.c):fc.c;
+      list.push({l:fc.l,z:zs/n,k:'f',pts:pts,fill:shade(c,lit,zs/n,fc.a)});}}
+  for(i=0;i<sprites.length;i++){s=sprites[i];var a=val(s.vis,T);if(a<=.012)continue;
+    if(s.k==='c'){p=proj(s.pf(T));if(p)list.push({l:2,z:p[2]-.1,k:'c',x:p[0],y:p[1],r:s.r*F/p[2]*Math.min(1,a*1.2),fill:shade(s.c,1,p[2],1)});}
+    else if(s.k==='rain'){var w0=s.pf(T);if(w0[1]<.1)continue;p=proj(w0);var p2=proj([w0[0],w0[1]-.32,w0[2]]);if(p&&p2)list.push({l:2,z:p[2],k:'l',a:p,b:p2,w:1.4*dpr,st:'rgba(96,160,214,'+(.85*a)+')'});}
+    else if(s.k==='pin'){p=proj(s.p);var pt=proj([s.p[0],s.p[1]+s.h*a,s.p[2]]);if(p&&pt){list.push({l:2,z:pt[2]-.2,k:'l',a:p,b:pt,w:2*dpr,st:shade(s.c,1,p[2],1)});
+      list.push({l:2,z:pt[2]-.3,k:'c',x:pt[0],y:pt[1],r:.2*F/pt[2],fill:shade(s.c,1,pt[2],1)});}}
+    else if(s.k==='arc'){var pr=s.prog(T),N=14,prev=null;for(j=0;j<=N;j++){var u=j/N;if(u>pr+1e-6)break;var q2=proj(arcPt(s.a,s.b,s.lift,u));
+      if(q2&&prev)list.push({l:2,z:(q2[2]+prev[2])/2-.3,k:'l',a:prev,b:q2,w:2.2*dpr,st:'rgba(214,162,34,'+(.9*a)+')'});prev=q2;}}
+    else if(s.k==='ring'){var pg=s.prog(T),M=24,pv=null;for(j=0;j<=M;j++){if(j/M>pg+1e-6)break;var an=j/M*Math.PI*2,wp=[s.p[0]+Math.cos(an)*s.r,s.p[1],s.p[2]+Math.sin(an)*s.r*.75],
+        q3=proj(wp),q4=proj([wp[0],wp[1]+.7,wp[2]]);
+      if(q3&&q4){list.push({l:2,z:q3[2]-.2,k:'l',a:q3,b:q4,w:2*dpr,st:'rgba(214,162,34,'+a+')'});
+        if(pv){list.push({l:2,z:q4[2]-.2,k:'l',a:pv,b:q4,w:2.4*dpr,st:'rgba(214,162,34,'+a+')'});}pv=q4;}}}
+  }
+  list.sort(function(a,b){return (a.l-b.l)||(b.z-a.z);});
+  ctx.lineJoin='round';ctx.lineCap='round';
+  for(i=0;i<list.length;i++){var d=list[i];
+    if(d.k==='f'){ctx.beginPath();ctx.moveTo(d.pts[0],d.pts[1]);for(j=2;j<d.pts.length;j+=2)ctx.lineTo(d.pts[j],d.pts[j+1]);ctx.closePath();ctx.fillStyle=d.fill;ctx.fill();ctx.strokeStyle=d.fill;ctx.lineWidth=.8;ctx.stroke();}
+    else if(d.k==='c'){ctx.beginPath();ctx.arc(d.x,d.y,Math.max(.5,d.r),0,6.2832);ctx.fillStyle=d.fill;ctx.fill();}
+    else{ctx.beginPath();ctx.moveTo(d.a[0],d.a[1]);ctx.lineTo(d.b[0],d.b[1]);ctx.strokeStyle=d.st;ctx.lineWidth=d.w;ctx.stroke();}}
+  drawTags(T);
+}
+function wrap(text,maxW){var words=text.split(' '),lines=[],cur='';words.forEach(function(w){var t=cur?cur+' '+w:w;if(ctx.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;});lines.push(cur);return lines;}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function drawTags(T){var fs=(W/dpr<520?12.5:15)*dpr,lh=fs*1.22,pad=7*dpr,placed=[],i,k;
+  ctx.font='600 '+fs+'px "Source Sans 3",system-ui,sans-serif';ctx.textBaseline='middle';
+  for(i=0;i<tags.length;i++){var g=tags[i],a=ramp(T,g.t0,.45)*(1-ramp(T,g.t1,.4));if(a<=.01)continue;var s=proj(g.p);if(!s)continue;
+    if(!g.lines){g.lines=wrap(g.text,Math.min(W*.56,230*dpr));g.w=0;g.lines.forEach(function(l){g.w=Math.max(g.w,ctx.measureText(l).width);});}
+    var w=g.w+pad*2,h=g.lines.length*lh+pad*1.2,x=clamp(s[0]-w/2,4,W-w-4),y=s[1]-h-18*dpr,up=true,guard=0,moved=true;
+    if(y<4){y=s[1]+16*dpr;up=false;}
+    while(moved&&guard++<24){moved=false;for(k=0;k<placed.length;k++){var r=placed[k];
+      if(x<r.x+r.w+4&&x+w+4>r.x&&y<r.y+r.h+4&&y+h+4>r.y){y=up?r.y-h-5:r.y+r.h+5;moved=true;if(up&&y<4){up=false;y=s[1]+16*dpr;}}}}
+    y=clamp(y,4,H-h-4);placed.push({x:x,y:y,w:w,h:h});
+    ctx.globalAlpha=a;
+    ctx.beginPath();ctx.moveTo(s[0],s[1]);ctx.lineTo(clamp(s[0],x+8,x+w-8),y<s[1]?y+h:y);ctx.strokeStyle='rgba(24,48,36,.9)';ctx.lineWidth=1.6*dpr;ctx.stroke();
+    ctx.beginPath();ctx.arc(s[0],s[1],3.4*dpr,0,6.2832);ctx.fillStyle='#E0B040';ctx.fill();ctx.strokeStyle='rgba(24,48,36,.9)';ctx.lineWidth=1.2*dpr;ctx.stroke();
+    rr(x,y,w,h,7*dpr);ctx.fillStyle='rgba(27,56,42,.95)';ctx.fill();ctx.strokeStyle='rgba(244,241,232,.55)';ctx.lineWidth=1*dpr;ctx.stroke();
+    ctx.fillStyle='#F6F2E6';for(k=0;k<g.lines.length;k++)ctx.fillText(g.lines[k],x+pad,y+pad*.6+lh*(k+.5));
+    ctx.globalAlpha=1;}
+}
+
+/* ---------- controle ---------- */
+var bar=document.getElementById('bar'),cap=document.getElementById('cap'),ttl=document.getElementById('ttl');
+var bPlay=document.getElementById('play'),bPrev=document.getElementById('prev'),bNext=document.getElementById('next');
+var tabs=[].slice.call(document.querySelectorAll('.tabs button'));
+var reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var fills=SC.map(function(s,i){var b=document.createElement('button');b.type='button';b.setAttribute('aria-label','Cena '+(i+1)+' de '+SC.length+': '+s.title);
+  if(i>0&&s.ch!==SC[i-1].ch)b.className='gap';b.innerHTML='<i><b></b></i>';b.addEventListener('click',function(){go(i);});bar.appendChild(b);return b.querySelector('b');});
+var T=0,idx=-1,playing=!reduced,posed=false,ended=false,last=null;
+function sceneOf(t){var i=SC.length-1;while(i>0&&t<SC[i].t0)i--;return i;}
+function paint(){var i=sceneOf(Math.min(T,TOTAL-.001));
+  if(i!==idx){idx=i;cap.textContent=SC[i].cap;ttl.textContent=SC[i].title;tabs.forEach(function(t,k){t.setAttribute('aria-current',k===SC[i].ch?'true':'false');});
+    bPrev.disabled=i===0;bNext.disabled=i===SC.length-1;}
+  bPlay.textContent=ended?'Rever do início':(playing?'Pausar':'Reproduzir');
+  fills.forEach(function(f,k){f.style.width=k<idx?'100%':(k>idx?'0%':clamp((T-SC[k].t0)/SC[k].d*100,0,100)+'%');});}
+function go(i){i=clamp(i,0,SC.length-1);ended=false;yawOff=0;pitchOff=0;
+  if(playing){T=SC[i].t0+(i===0?0:.01);posed=false;}else{T=SC[i].t0+SC[i].d*.82;posed=true;}paint();}
+function toggle(){if(ended){ended=false;playing=true;posed=false;T=0;paint();return;}
+  playing=!playing;if(playing&&posed){T=SC[idx].t0;posed=false;}paint();}
+function tick(t){if(last===null)last=t;var dt=Math.min(.1,(t-last)/1000);last=t;
+  if(playing){T+=dt;if(T>=TOTAL){T=TOTAL-.01;playing=false;ended=true;}paint();}
+  render(T);requestAnimationFrame(tick);}
+bPlay.addEventListener('click',toggle);
+bPrev.addEventListener('click',function(){go(idx-1);});
+bNext.addEventListener('click',function(){go(idx+1);});
+tabs.forEach(function(t){t.addEventListener('click',function(){go(+t.dataset.go);});});
+document.addEventListener('keydown',function(e){if(e.target&&e.target.tagName==='BUTTON'&&(e.key===' '||e.key==='Enter'))return;
+  if(e.key==='ArrowRight')go(idx+1);else if(e.key==='ArrowLeft')go(idx-1);else if(e.key===' '){e.preventDefault();toggle();}});
+document.addEventListener('visibilitychange',function(){last=null;});
+var drag=null;
+cv.addEventListener('pointerdown',function(e){drag=[e.clientX,e.clientY];try{cv.setPointerCapture(e.pointerId);}catch(_){}});
+cv.addEventListener('pointermove',function(e){if(!drag)return;yawOff-=(e.clientX-drag[0])*.008;pitchOff=clamp(pitchOff+(e.clientY-drag[1])*.006,-.5,.7);drag=[e.clientX,e.clientY];});
+['pointerup','pointercancel'].forEach(function(n){cv.addEventListener(n,function(){drag=null;});});
+window.addEventListener('resize',resize);
+if(window.matchMedia){var mq=window.matchMedia('(prefers-color-scheme: dark)');if(mq.addEventListener)mq.addEventListener('change',readBG);}
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){tags.forEach(function(g){g.lines=null;});});
+resize();if(!playing){T=SC[0].d*.82;posed=true;}paint();requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
